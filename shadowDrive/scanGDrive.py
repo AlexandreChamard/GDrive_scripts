@@ -3,7 +3,7 @@
 from pprint import pprint
 from copy import deepcopy
 
-FIELD_INFO = 'id, name, size, mimeType, trashed'
+FIELD_INFO = 'id, name, mimeType, size, modifiedTime, trashed'
 
 def serializeTree(tree):
     n_tree = deepcopy(tree)
@@ -24,37 +24,6 @@ def pprintTree(tree, filename=None):
         except:
             print(f'error when print in {FILENAME}')
             pass
-
-# def dumpTree(tree):
-#     with open(FILENAME, 'w') as f:
-#         identStr = '\t'
-#         indent = 0
-
-#         folders = [tree]
-
-#         while len(folders) > 0:
-#             if folders[-1] is None:
-#                 indent -= 1
-#                 folders.pop()
-#                 continue
-
-#             folder = folders[-1]
-#             folders[-1] = None
-#             try:
-#                 f.write(f'{identStr * indent}folder {folder["name"]!r} {folder["size"]} https://drive.google.com/drive/u/0/folders/{folder["id"]}\n')
-#             except UnicodeEncodeError:
-#                 name = f'{folder["name"].encode("unicode_escape")!r}'
-#                 f.write(f'{identStr * indent}folder {name[1:]} {folder["size"]} https://drive.google.com/drive/u/0/folders/{folder["id"]}\n')
-#             indent += 1
-
-#             for file in folder['files']:
-#                 try:
-#                     f.write(f'{identStr * indent}file {file["name"]!r} {file["size"]}\n')
-#                 except UnicodeEncodeError:
-#                     name = f'{file["name"].encode("unicode_escape")!r}'
-#                     f.write(f'{identStr * indent}file {name[1:]} {file["size"]}\n')
-#             folders += folder['folders']
-#     print(f'\nfile {FILENAME} has been created')
 
 def requestTree(service, baseId):
     print('start request tree')

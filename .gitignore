@@ -10,3 +10,7 @@ samples
 creds
 
 scanGDrive/result.txt
+shadowDrive/result.txt
+
+config.json
+shadowDrive/public

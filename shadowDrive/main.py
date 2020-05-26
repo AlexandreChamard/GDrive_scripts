@@ -6,7 +6,7 @@ from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
-from scanGDriveFolder import requestTree, pprintTree
+from scanGDrive import requestTree, pprintTree
 from arborescence import generateTree
 
 FILENAME = 'result.txt'
