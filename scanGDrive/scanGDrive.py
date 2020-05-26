@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 
-from __future__ import print_function
 import pickle
 import socket
 import os.path
@@ -13,7 +12,7 @@ SCOPES = ['https://www.googleapis.com/auth/drive.metadata.readonly']
 
 socket.setdefaulttimeout(300)
 
-FIELD_INFO = 'id, name, quotaBytesUsed, size'
+FIELD_INFO = 'id, name, size, mimeType'
 
 FILENAME = 'result.txt'
 
@@ -62,18 +61,16 @@ def requestTree(service, baseId):
     folders = [base]
     while len(folders) > 0:
         f = folders.pop()
-        listFiles(service, f)
-        listFolders(service, f)
+        listChildren(service, f)
         folders += f['folders']
     dumpTree(base)
 
-def listFiles(service, folder):
-    print('listFiles: '+folder['name'])
+def listChildren(service, folder):
+    print(f'listChildren: {folder["name"]}')
     token = None
     while True:
         results = service.files().list(
-                q=f"'{folder['id']}' in parents and mimeType != 'application/vnd.google-apps.folder'",
-                # q="'"+folder['id']+"' in parents and mimeType != 'application/vnd.google-apps.folder'",
+                q=f"'{folder['id']}' in parents",
                 includeItemsFromAllDrives=True,
                 supportsAllDrives=True,
                 pageToken=token,
@@ -82,35 +79,29 @@ def listFiles(service, folder):
         token = results.get('nextPageToken', [])
 
         if files:
-            folder['files'] += files
             for file in files:
-                f = folder
-                while f is not None:
-                    f['size'] += int(file['size'])
-                    f = f['parent']
-        if not token:
-            break
-
-def listFolders(service, folder, token=None):
-    print('listFolders: '+folder['name'])
-    token = None
-    while True:
-        results = service.files().list(
-                q=f"'{folder['id']}' in parents and mimeType = 'application/vnd.google-apps.folder'",
-                includeItemsFromAllDrives=True,
-                supportsAllDrives=True,
-                pageToken=token,
-                fields=f"nextPageToken, files({FIELD_INFO})").execute()
-        folders = results.get('files', [])
-        token = results.get('nextPageToken', [])
-
-        if folders:
-            for f in folders:
-                f['folders'] = []
-                f['files'] = []
-                f['size'] = 0
-                f['parent'] = folder
-                folder['folders'].append(f)
+                if 'size' not in file:
+                    file['size'] = '0'
+                if file['mimeType'] == 'application/vnd.google-apps.folder':
+                    # folder
+                    folder['folders'].append(file)
+                    file['folders'] = []
+                    file['files'] = []
+                    file['size'] = 0
+                    file['parent'] = folder
+                else:
+                    # file
+                    folder['files'].append(file)
+                    if file['mimeType'] == 'application/vnd.google-apps.document':
+                        file['name'] = file['name'] + '.gdoc'
+                    elif file['mimeType'] == 'application/vnd.google-apps.spreadsheet':
+                        file['name'] = file['name'] + '.gsheet'
+                    elif file['mimeType'] == 'application/vnd.google-apps.presentation':
+                        file['name'] = file['name'] + '.gpres'
+                    f = folder
+                    while f is not None:
+                        f['size'] += int(file['size'])
+                        f = f['parent']
         if not token:
             break
 
@@ -144,11 +135,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-'''
-mimeType = type de fichier
-folder:      application/vnd.google-apps.folder
-spreadsheet: application/vnd.google-apps.spreadsheet
-docx:        application/vnd.openxmlformats-officedocument.wordprocessingml.document
-pptx:        application/vnd.openxmlformats-officedocument.presentationml.presentation
-'''
