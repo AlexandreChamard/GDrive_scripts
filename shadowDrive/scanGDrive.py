@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from pprint import pprint
+import json
 from copy import deepcopy
 
 FIELD_INFO = 'id, name, mimeType, size, modifiedTime, trashed'
@@ -14,15 +14,16 @@ def serializeTree(tree):
         nodes = nodes + node['folders']
     return n_tree
 
-def pprintTree(tree, filename=None):
+def dumpTree(tree, filename=None):
+    serializedTree = json.dumps(serializeTree(tree), indent=2)
     if filename is None:
-        pprint(serializeTree(tree))
+        print(serializedTree)
     else:
         try:
             with open(filename, 'w') as f:
-                pprint(serializeTree(tree), stream=f)
+                f.write(serializedTree)
         except:
-            print(f'error when print in {FILENAME}')
+            print(f'error in file "{filename}"')
             pass
 
 def requestTree(service, baseId):
@@ -44,7 +45,7 @@ def requestTree(service, baseId):
     return base
 
 def listChildren(service, folder):
-    print('listChildren: '+folder['name'])
+    print(f'listChildren: {folder["name"]}')
     token = None
     while True:
         results = service.files().list(
@@ -52,14 +53,18 @@ def listChildren(service, folder):
                 includeItemsFromAllDrives=True,
                 supportsAllDrives=True,
                 pageToken=token,
-                fields=f"nextPageToken, files({FIELD_INFO})").execute()
+                fields=f'nextPageToken, files({FIELD_INFO})').execute()
         files = results.get('files', [])
         token = results.get('nextPageToken', [])
 
         if files:
             for file in files:
-                if 'size' not in file:
-                    file['size'] = '0'
+                # replace all '/' and '\\' occurences because they break paths
+                if file['name'].find('/') != -1:
+                    file['name'] = file['name'].replace('/', '-')
+                if file['name'].find('\\') != -1:
+                    file['name'] = file['name'].replace('\\', '-')
+
                 if file['mimeType'] == 'application/vnd.google-apps.folder':
                     # folder
                     folder['folders'].append(file)
@@ -70,6 +75,7 @@ def listChildren(service, folder):
                 else:
                     # file
                     folder['files'].append(file)
+                    file['size'] = int(file['size']) if 'size' in file else 0
                     if file['mimeType'] == 'application/vnd.google-apps.document':
                         file['name'] = file['name'] + '.gdoc'
                     elif file['mimeType'] == 'application/vnd.google-apps.spreadsheet':
@@ -78,7 +84,7 @@ def listChildren(service, folder):
                         file['name'] = file['name'] + '.gpres'
                     f = folder
                     while f is not None:
-                        f['size'] += int(file['size'])
+                        f['size'] += file['size']
                         f = f['parent']
         if not token:
             break

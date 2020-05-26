@@ -14,3 +14,8 @@ shadowDrive/result.txt
 
 config.json
 shadowDrive/public
+
+#tmp
+store
+AOC*
+public*

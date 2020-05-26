@@ -3,14 +3,16 @@
 import platform
 from pathlib import Path
 
-def generateTree(tree, rootPath):
-    paths = [[Path(rootPath) / tree['name'], tree]]
-    print('begin tree generation')
+def generateTree(tree, rootPath, rootName):
+    if Path(rootPath).is_dir() is False:
+        print(f'path {rootPath} does not exists')
+        return
+    paths = [[Path(rootPath) / rootName, tree]]
+    print(f'begin tree generation on {paths[0][0]}')
     while len(paths) > 0:
         [path, node] = paths.pop()
 
         if path.exists() is False and path.is_dir() is False:
-            print(f'path {path} is dir: {path.is_dir()}')
             path.mkdir()
         if path.is_dir() is False:
             print(f'Error: fail to generate directory {path}')
@@ -23,4 +25,4 @@ def generateTree(tree, rootPath):
 
         paths = paths + list(map(lambda f: [path / f['name'], f], node['folders']))
 
-    print('tree generation successful')
+    print('tree generated successfuly')

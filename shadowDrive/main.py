@@ -1,20 +1,34 @@
 #!/usr/bin/python3
 
+import json
 import pickle
 import os.path
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
-from scanGDrive import requestTree, pprintTree
+from scanGDrive import requestTree, dumpTree
 from arborescence import generateTree
-
-FILENAME = 'result.txt'
 
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
 
+def loadConfig(path='config.json'):
+    with open(path) as f:
+        config = json.loads(f.read())
+        if 'shadow_folders' in config is False:
+            raise Exception('Config Error: need "shadow_folders" key')
+        for f in config['shadow_folders']:
+            if not 'folder_name' in f:
+                raise Exception('Config Error: need "folder_name" key on shadow folders')
+            if not 'folder_id' in f:
+                raise Exception('Config Error: need "folder_id" key on shadow folders')
+            if not 'storage_loc' in f:
+                f['storage_loc'] = '.'
+        return config
+
 def main():
+    config = loadConfig()
     creds = None
     # The file token.pickle stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
@@ -37,11 +51,19 @@ def main():
     print('create service')
     service = build('drive', 'v3', credentials=creds)
 
-    print('ok')
-    folderId = input('Folder id: ')
-    tree = requestTree(service, folderId.strip())
-    pprintTree(tree, FILENAME)
-    generateTree(tree, '.')
+    for folder in config['shadow_folders']:
+        print('\n=======================')
+        print(folder)
+        try:
+            tree = requestTree(service, folder['folder_id'])
+            dumpTree(tree, folder['folder_name'] + '_result.json')
+            generateTree(tree, folder['storage_loc'], folder['folder_name'])
+        except Exception as e:
+            if hasattr(e, 'message'):
+                print(e.message)
+            else:
+                print(f'{type(e)}: an error has occur in {folder["folder_name"]}')
+
     input('press enter to close...')
 
 
