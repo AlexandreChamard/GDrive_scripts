@@ -3,25 +3,44 @@
 import platform
 from pathlib import Path
 
-def generateTree(tree, rootPath, rootName):
-    if Path(rootPath).is_dir() is False:
+from downloader import downloadFileFromId, canBeDownloaded
+
+def generateTree(service, tree, folder):
+    rootPath, rootName = Path(folder['storage_loc']), folder['folder_name']
+    if not rootPath.is_dir():
         print(f'path {rootPath} does not exists')
         return
-    paths = [[Path(rootPath) / rootName, tree]]
+    paths = [[rootPath / rootName, tree]]
+    downloadPaths = folder['downloads'] if 'downloads' in folder else []
+    downloadPaths = list(map(lambda p: str(paths[0][0] / p), downloadPaths))
     print(f'begin tree generation on {paths[0][0]}')
     while len(paths) > 0:
         [path, node] = paths.pop()
 
-        if path.exists() is False and path.is_dir() is False:
+        if not path.exists():
             path.mkdir()
-        if path.is_dir() is False:
+        if not path.is_dir():
             print(f'Error: fail to generate directory {path}')
             return
         for file in node['files']:
             filename = path / file['name']
             # TODO changer l'extension
-            if filename.exists() is False:
-                filename.touch()
+            if not file['trashed'] and not filename.exists():
+                touch = True
+                try:
+                    # TODO mettre ça ailleur
+                    # TODO télécharger aussi si la date de mise à jour ne correspond pas
+                    if canBeDownloaded(file):
+                        for p in downloadPaths:
+                            print(f'{filename} in {p}')
+                            if filename.match(p):
+                                print(f'TRUE {filename} in {p}')
+                                downloadFileFromId(service, file['id'], filename)
+                                touch = False
+                                break
+                finally:
+                    if touch is True:
+                        filename.touch()
 
         paths = paths + list(map(lambda f: [path / f['name'], f], node['folders']))
 

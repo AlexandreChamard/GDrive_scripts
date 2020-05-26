@@ -1,8 +1,14 @@
 #!/usr/bin/python3
 
+import sys
 import json
 import pickle
 import os.path
+from pathlib import Path
+
+import functools 
+import operator 
+
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
@@ -10,25 +16,37 @@ from google.auth.transport.requests import Request
 from scanGDrive import requestTree, dumpTree
 from arborescence import generateTree
 
+DEFAULT_PATH = Path('../store')
+
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
 
-def loadConfig(path='config.json'):
+def loadConfig(path):
     with open(path) as f:
         config = json.loads(f.read())
         if 'shadow_folders' in config is False:
             raise Exception('Config Error: need "shadow_folders" key')
         for f in config['shadow_folders']:
-            if not 'folder_name' in f:
-                raise Exception('Config Error: need "folder_name" key on shadow folders')
-            if not 'folder_id' in f:
-                raise Exception('Config Error: need "folder_id" key on shadow folders')
+            if not 'folder_name' in f or not isinstance(f['folder_name'], str):
+                raise Exception('Config Error: need "folder_name" key on shadow folders and must be a string')
+            if not 'folder_id' in f or not isinstance(f['folder_id'], str):
+                raise Exception('Config Error: need "folder_id" key on shadow folders and must be a string')
             if not 'storage_loc' in f:
-                f['storage_loc'] = '.'
+                f['storage_loc'] = DEFAULT_PATH
+            elif not isinstance(f['storage_loc'], str):
+                raise Exception('Config Error: "storage_loc" must be a string')
+            if 'downloads' in f:
+                if not isinstance(f['downloads'], list) or not functools.reduce(operator.__and__, map(lambda s: isinstance(s, str), f['downloads']), True):
+                    raise Exception('Config Error: "downloads" must be a list of string')
+                if functools.reduce(operator.__or__, map(lambda s: s.find('..') != -1, f['downloads']), False):
+                    raise Exception("Config Error: downloads' strings cannot contain '..'")
         return config
 
 def main():
-    config = loadConfig()
+    if len(sys.argv) == 1:
+        print('missing config argument')
+        return
+    config = loadConfig(sys.argv[1])
     creds = None
     # The file token.pickle stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
@@ -56,16 +74,14 @@ def main():
         print(folder)
         try:
             tree = requestTree(service, folder['folder_id'])
-            dumpTree(tree, folder['folder_name'] + '_result.json')
-            generateTree(tree, folder['storage_loc'], folder['folder_name'])
+            dumpTree(tree, DEFAULT_PATH / f'{folder["folder_name"]}_result.json')
+            generateTree(service, tree, folder)
         except Exception as e:
             if hasattr(e, 'message'):
                 print(e.message)
             else:
                 print(f'{type(e)}: an error has occur in {folder["folder_name"]}')
-
-    input('press enter to close...')
-
+                raise e
 
     '''
     1. requeter tous les metadatas
